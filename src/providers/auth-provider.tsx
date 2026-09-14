@@ -10,7 +10,7 @@ import {
 	type Auth,
 	type User
 } from 'firebase/auth';
-import { config } from './config';
+import { config } from '@/lib/config';
 
 type AuthStatus = 'loading' | 'signed-out' | 'signed-in';
 

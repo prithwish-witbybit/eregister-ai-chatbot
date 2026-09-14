@@ -1,147 +1,135 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useAuth } from './auth';
-import { config } from './config';
-import { deleteThread, fetchTicket, listCompanies, listThreads, type ChatThread, type Company, type WsTicket } from './api';
-import { ChatView } from './ChatView';
-import { LoginScreen } from './LoginScreen';
-
-const COMPANY_KEY = 'chat-web:companyId';
-
-function readStoredCompany(): string {
-	try {
-		return localStorage.getItem(COMPANY_KEY) ?? '';
-	} catch {
-		return '';
-	}
-}
+import { useState } from 'react';
+import { AlertCircleIcon, MessageSquarePlusIcon } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Spinner } from '@/components/ui/spinner';
+import { LoginScreen } from '@/components/auth/login-screen';
+import { ChatPanel } from '@/components/chat/chat-panel';
+import { ThreadSidebar } from '@/components/sidebar/thread-sidebar';
+import { useCompanies, isValidCompanyId } from '@/hooks/use-companies';
+import { useThreads } from '@/hooks/use-threads';
+import { useAuth } from '@/providers/auth-provider';
 
 export function App() {
 	const { status } = useAuth();
-	if (status === 'loading') return <div className='center muted'>Loading…</div>;
-	if (status === 'signed-out') return <LoginScreen />;
-	return <Workspace />;
+
+	if (status === 'loading') {
+		return (
+			<div className='grid min-h-full place-items-center'>
+				<Spinner className='size-5 text-muted-foreground' />
+			</div>
+		);
+	}
+
+	return status === 'signed-out' ? <LoginScreen /> : <Workspace />;
 }
 
 function Workspace() {
 	const { getToken, email, signOut } = useAuth();
-	const [companies, setCompanies] = useState<Company[]>([]);
-	const [companyId, setCompanyId] = useState(readStoredCompany);
-	const [threads, setThreads] = useState<ChatThread[]>([]);
-	const [active, setActive] = useState<WsTicket | null>(null);
-	const [opening, setOpening] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { companies, companyId, setCompanyId } = useCompanies(getToken);
+	const { threads, activeTicket, opening, error, clearError, open, remove, refresh } = useThreads(getToken, companyId);
+	const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
-	useEffect(() => {
-		listCompanies(getToken)
-			.then(list => {
-				setCompanies(list);
-				setCompanyId(prev => (list.some(c => c.id === prev) ? prev : (list[0]?.id ?? prev)));
-			})
-			// Local no-auth mode may not resolve a user; the free-text company id field covers that.
-			.catch(() => setCompanies([]));
-	}, [getToken]);
-
-	useEffect(() => {
-		try {
-			localStorage.setItem(COMPANY_KEY, companyId);
-		} catch {
-			// Storage blocked (private window) — the picker still works for this session.
-		}
-	}, [companyId]);
-
-	const refreshThreads = useCallback(async () => {
-		if (!/^\d+$/.test(companyId)) return setThreads([]);
-		try {
-			setThreads(await listThreads(getToken, companyId));
-		} catch (err) {
-			setError((err as Error).message);
-		}
-	}, [getToken, companyId]);
-
-	useEffect(() => {
-		setActive(null);
-		void refreshThreads();
-	}, [refreshThreads]);
-
-	const open = async (threadPid?: string) => {
-		setOpening(true);
-		setError(null);
-		try {
-			setActive(await fetchTicket(getToken, companyId, threadPid));
-			if (!threadPid) void refreshThreads();
-		} catch (err) {
-			setError((err as Error).message);
-		} finally {
-			setOpening(false);
-		}
-	};
-
-	const remove = async (threadPid: string) => {
-		if (!confirm('Delete this chat?')) return;
-		try {
-			await deleteThread(getToken, companyId, threadPid);
-			if (active?.threadPid === threadPid) setActive(null);
-			await refreshThreads();
-		} catch (err) {
-			setError((err as Error).message);
-		}
-	};
+	const activeThread = threads.find(thread => thread.publicId === activeTicket?.threadPid);
 
 	return (
-		<div className='layout'>
-			<aside className='sidebar'>
-				<div className='sidebar-head'>
-					{companies.length ? (
-						<select value={companyId} onChange={e => setCompanyId(e.target.value)}>
-							{companies.map(c => (
-								<option key={c.id} value={c.id}>
-									{c.name}
-								</option>
-							))}
-						</select>
-					) : (
-						<input placeholder='Company id' value={companyId} onChange={e => setCompanyId(e.target.value.trim())} />
-					)}
-					<button className='primary' disabled={!/^\d+$/.test(companyId) || opening} onClick={() => void open()}>
-						+ New chat
-					</button>
-				</div>
-				<ul className='threads'>
-					{threads.map(t => (
-						<li key={t.publicId} className={active?.threadPid === t.publicId ? 'active' : ''}>
-							<button className='thread' disabled={opening} onClick={() => void open(t.publicId)}>
-								<span>{t.title ?? 'Untitled chat'}</span>
-								<small>{new Date(t.createdOn).toLocaleString()}</small>
-							</button>
-							<button className='icon' title='Delete chat' onClick={() => void remove(t.publicId)}>
-								×
-							</button>
-						</li>
-					))}
-				</ul>
-				<div className='sidebar-foot'>
-					<span className='muted'>{email}</span>
-					{config.authEnabled && <button onClick={() => void signOut()}>Sign out</button>}
-				</div>
-			</aside>
-			<main className='main'>
-				{error && (
-					<div className='banner error' onClick={() => setError(null)}>
-						{error}
-					</div>
+		<div className='flex h-full'>
+			<ThreadSidebar
+				companies={companies}
+				companyId={companyId}
+				onCompanyChange={setCompanyId}
+				threads={threads}
+				activeThreadPid={activeTicket?.threadPid ?? null}
+				opening={opening}
+				onNewChat={() => void open()}
+				onOpenThread={threadPid => void open(threadPid)}
+				onDeleteThread={setPendingDelete}
+				email={email}
+				onSignOut={() => void signOut()}
+			/>
+
+			<main className='flex min-h-0 min-w-0 flex-1 flex-col'>
+				{activeTicket && (
+					<header className='flex h-14 shrink-0 items-center border-b border-border px-6'>
+						<h1 className='truncate font-heading text-sm font-medium'>{activeThread?.title ?? 'New chat'}</h1>
+					</header>
 				)}
-				{active ? (
-					<ChatView
-						key={active.name}
-						initialTicket={active}
+
+				{error && (
+					<Alert variant='destructive' className='mx-6 mt-4 w-auto' onClick={clearError}>
+						<AlertCircleIcon />
+						<AlertDescription>{error}</AlertDescription>
+					</Alert>
+				)}
+
+				{activeTicket ? (
+					<ChatPanel
+						key={activeTicket.name}
+						initialTicket={activeTicket}
 						companyId={companyId}
 						getToken={getToken}
-						onTurnFinished={refreshThreads}
+						onTurnFinished={refresh}
 					/>
 				) : (
-					<div className='center muted'>{companyId ? 'Pick a chat or start a new one.' : 'Choose a company.'}</div>
+					<NoThreadSelected canStart={isValidCompanyId(companyId)} busy={opening} onNewChat={() => void open()} />
 				)}
 			</main>
+
+			<AlertDialog open={pendingDelete !== null} onOpenChange={isOpen => !isOpen && setPendingDelete(null)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete this chat?</AlertDialogTitle>
+						<AlertDialogDescription>This permanently removes the conversation and its history.</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							variant='destructive'
+							onClick={() => {
+								if (pendingDelete) void remove(pendingDelete);
+								setPendingDelete(null);
+							}}
+						>
+							Delete
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
+	);
+}
+
+function NoThreadSelected({ canStart, busy, onNewChat }: { canStart: boolean; busy: boolean; onNewChat: () => void }) {
+	return (
+		<Empty className='flex-1'>
+			<EmptyHeader>
+				<EmptyMedia variant='icon' className='size-10 rounded-xl'>
+					<MessageSquarePlusIcon className='size-5' />
+				</EmptyMedia>
+				<EmptyTitle className='text-base'>{canStart ? 'No chat open' : 'Choose a company'}</EmptyTitle>
+				<EmptyDescription>
+					{canStart
+						? 'Pick a conversation from the sidebar, or start a new one.'
+						: 'Select a company to load its chats and start talking to your registers.'}
+				</EmptyDescription>
+			</EmptyHeader>
+			{canStart && (
+				<Button disabled={busy} onClick={onNewChat}>
+					<MessageSquarePlusIcon />
+					New chat
+				</Button>
+			)}
+		</Empty>
 	);
 }

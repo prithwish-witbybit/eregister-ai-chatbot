@@ -2,7 +2,9 @@ import { splitPayload } from '@/lib/message-parts';
 
 function CodeBlock({ children }: { children: string }) {
 	return (
-		<pre className='max-h-90 overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-xs leading-relaxed whitespace-pre'>{children}</pre>
+		<pre className='max-h-90 scrollbar-thin scrollbar-thumb-muted-foreground/25 scrollbar-track-transparent overflow-auto rounded-lg bg-muted/60 p-3 font-mono text-xs leading-relaxed whitespace-pre transition-colors hover:scrollbar-thumb-muted-foreground/45'>
+			{children}
+		</pre>
 	);
 }
 

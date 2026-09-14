@@ -4,17 +4,9 @@
 	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
-		"dev:test": "vite --mode test",
-		"dev:feature": "vite --mode feature",
-		"typecheck": "tsc --noEmit",
-		"build:test": "tsc --noEmit && vite build --mode test",
-		"build:feature": "tsc --noEmit && vite build --mode feature",
-		"deploy:test": "npm run build:test && wrangler deploy --env test",
-		"deploy:feature": "npm run build:feature && wrangler deploy --env feature",
-		"dev:ai-preview": "vite --mode ai-preview",
-		"build:ai-preview": "tsc --noEmit && vite build --mode ai-preview",
-		"deploy:ai-preview": "npm run build:ai-preview && wrangler deploy --env ai-preview"
+		"dev": "vite --mode ai-preview",
+		"build": "tsc --noEmit && vite build --mode ai-preview",
+		"deploy": "npm run build && wrangler deploy --env ai-preview"
 	},
 	"dependencies": {
 		"@ai-sdk/react": "^3.0.285",

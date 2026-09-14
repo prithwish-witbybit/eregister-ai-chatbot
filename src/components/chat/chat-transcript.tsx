@@ -11,6 +11,7 @@ import { Message, MessageContent } from '@/components/ui/message';
 import { AssistantAvatar, ChatMessage } from '@/components/chat/chat-message';
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
 import { ChatTranscriptSkeleton } from '@/components/chat/chat-transcript-skeleton';
+import { cn } from '@/lib/utils';
 import type { Answer } from '@/lib/message-parts';
 
 interface ChatTranscriptProps {
@@ -19,6 +20,8 @@ interface ChatTranscriptProps {
 	thinking: boolean;
 	/** True while an existing thread's history is still in flight over the socket. */
 	loadingHistory: boolean;
+	/** True for the whole turn — parks the scrollbar so the reveal doesn't resize the thumb. */
+	streaming: boolean;
 	onApproval: (approvalId: string, approved: boolean) => void;
 	onAnswer: (toolCallId: string, answers: Answer[]) => void;
 	onPickSuggestion: (prompt: string) => void;
@@ -43,7 +46,7 @@ function ThinkingIndicator() {
 	);
 }
 
-export function ChatTranscript({ messages, thinking, loadingHistory, onApproval, onAnswer, onPickSuggestion }: ChatTranscriptProps) {
+export function ChatTranscript({ messages, thinking, loadingHistory, streaming, onApproval, onAnswer, onPickSuggestion }: ChatTranscriptProps) {
 	if (loadingHistory) {
 		return (
 			<div className='flex-1 overflow-hidden'>
@@ -55,7 +58,15 @@ export function ChatTranscript({ messages, thinking, loadingHistory, onApproval,
 	return (
 		<MessageScrollerProvider autoScroll defaultScrollPosition='last-anchor' scrollPreviousItemPeek={64}>
 			<MessageScroller className='flex-1'>
-				<MessageScrollerViewport>
+				{/*
+				  The reveal grows the content a word at a time, and every growth re-measures the
+				  thumb — which reads as the scrollbar twitching for the length of the reply. Parking
+				  its colors hides that; `scrollbar-gutter-stable` on the viewport means the track
+				  still occupies its space, so nothing reflows when the thumb comes back.
+				*/}
+				<MessageScrollerViewport
+					className={cn(streaming && 'scrollbar-thumb-transparent scrollbar-track-transparent hover:scrollbar-thumb-transparent')}
+				>
 					<MessageScrollerContent className='mx-auto w-full max-w-3xl px-4 py-6'>
 						{messages.length === 0 && !thinking ? (
 							<ChatEmptyState onPick={onPickSuggestion} />

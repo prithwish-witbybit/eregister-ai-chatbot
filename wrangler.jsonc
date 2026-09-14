@@ -1,5 +1,5 @@
 // Static-asset Worker serving the AI chat web client (no script — Workers serves ./dist directly).
-// Build for the env first (`npm run deploy:test` does both). Its workers.dev origin must be in the API
+// Build first (`npm run deploy` does both). The worker's workers.dev origin must be in the API
 // worker's CORS_WHITELIST for that env and in Firebase Auth → Settings → Authorized domains.
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",

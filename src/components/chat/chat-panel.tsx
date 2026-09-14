@@ -65,6 +65,7 @@ function Conversation({ initialTicket, companyId, getToken, isNewThread, onTurnF
 				messages={messages}
 				thinking={thinking}
 				loadingHistory={loadingHistory}
+				streaming={busy}
 				onApproval={(id, approved) => void chat.addToolApprovalResponse({ id, approved })}
 				onAnswer={(toolCallId, answers) => chat.addToolOutput({ toolCallId, toolName: 'ask_user', output: { answers } })}
 				onPickSuggestion={send}

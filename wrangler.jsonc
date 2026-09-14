@@ -1,0 +1,25 @@
+// Static-asset Worker serving the AI chat web client (no script — Workers serves ./dist directly).
+// Build for the env first (`npm run deploy:test` does both). Its workers.dev origin must be in the API
+// worker's CORS_WHITELIST for that env and in Firebase Auth → Settings → Authorized domains.
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "eregister-ai-chat-web",
+	// Test Cloudflare account (same one the backend's test/feature/ai-preview envs deploy to).
+	"account_id": "b398e10c3140b99b1ea73868a83d543a",
+	"compatibility_date": "2026-04-16",
+	"assets": { "directory": "./dist", "not_found_handling": "single-page-application" },
+	"env": {
+		"test": {
+			"name": "eregister-ai-chat-web-test",
+			"assets": { "directory": "./dist", "not_found_handling": "single-page-application" }
+		},
+		"feature": {
+			"name": "eregister-ai-chat-web-feature",
+			"assets": { "directory": "./dist", "not_found_handling": "single-page-application" }
+		},
+		"ai-preview": {
+			"name": "eregister-ai-chat-web-ai-preview",
+			"assets": { "directory": "./dist", "not_found_handling": "single-page-application" }
+		}
+	}
+}

@@ -55,8 +55,11 @@ export function ChatTranscript({ messages, thinking, loadingHistory, streaming, 
 		);
 	}
 
+	// `last-anchor` would pin the newly sent user message to the top of the viewport and hold it
+	// there, leaving the reply to grow off the bottom edge. `end` follows the live edge instead, so
+	// a streaming reply stays in view without the reader chasing it.
 	return (
-		<MessageScrollerProvider autoScroll defaultScrollPosition='last-anchor' scrollPreviousItemPeek={64}>
+		<MessageScrollerProvider autoScroll defaultScrollPosition='end'>
 			<MessageScroller className='flex-1'>
 				{/*
 				  The reveal grows the content a word at a time, and every growth re-measures the
@@ -73,7 +76,7 @@ export function ChatTranscript({ messages, thinking, loadingHistory, streaming, 
 						) : (
 							<>
 								{messages.map(message => (
-									<MessageScrollerItem key={message.id} messageId={message.id} scrollAnchor={message.role === 'user'}>
+									<MessageScrollerItem key={message.id} messageId={message.id}>
 										<ChatMessage message={message} onApproval={onApproval} onAnswer={onAnswer} />
 									</MessageScrollerItem>
 								))}

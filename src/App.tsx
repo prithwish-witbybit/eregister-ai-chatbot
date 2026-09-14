@@ -37,8 +37,19 @@ export function App() {
 
 function Workspace() {
 	const { getToken, email, signOut } = useAuth();
-	const { companies, companyId, setCompanyId } = useCompanies(getToken);
-	const { threads, activeTicket, opening, error, clearError, open, remove, refresh } = useThreads(getToken, companyId);
+	const { companies, companyId, setCompanyId, loading: loadingCompanies } = useCompanies(getToken);
+	const {
+		threads,
+		activeTicket,
+		isNewThread,
+		opening,
+		loadingThreads,
+		error,
+		clearError,
+		open,
+		remove,
+		refresh
+	} = useThreads(getToken, companyId);
 	const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
 	const activeThread = threads.find(thread => thread.publicId === activeTicket?.threadPid);
@@ -48,10 +59,12 @@ function Workspace() {
 			<ThreadSidebar
 				companies={companies}
 				companyId={companyId}
+				loadingCompanies={loadingCompanies}
 				onCompanyChange={setCompanyId}
 				threads={threads}
 				activeThreadPid={activeTicket?.threadPid ?? null}
 				opening={opening}
+				loadingThreads={loadingThreads}
 				onNewChat={() => void open()}
 				onOpenThread={threadPid => void open(threadPid)}
 				onDeleteThread={setPendingDelete}
@@ -79,10 +92,16 @@ function Workspace() {
 						initialTicket={activeTicket}
 						companyId={companyId}
 						getToken={getToken}
+						isNewThread={isNewThread}
 						onTurnFinished={refresh}
 					/>
 				) : (
-					<NoThreadSelected canStart={isValidCompanyId(companyId)} busy={opening} onNewChat={() => void open()} />
+					<NoThreadSelected
+						canStart={isValidCompanyId(companyId)}
+						loading={loadingCompanies}
+						busy={opening}
+						onNewChat={() => void open()}
+					/>
 				)}
 			</main>
 
@@ -110,7 +129,22 @@ function Workspace() {
 	);
 }
 
-function NoThreadSelected({ canStart, busy, onNewChat }: { canStart: boolean; busy: boolean; onNewChat: () => void }) {
+interface NoThreadSelectedProps {
+	canStart: boolean;
+	loading: boolean;
+	busy: boolean;
+	onNewChat: () => void;
+}
+
+function NoThreadSelected({ canStart, loading, busy, onNewChat }: NoThreadSelectedProps) {
+	if (loading) {
+		return (
+			<div className='flex flex-1 items-center justify-center'>
+				<Spinner className='size-5 text-muted-foreground' />
+			</div>
+		);
+	}
+
 	return (
 		<Empty className='flex-1'>
 			<EmptyHeader>

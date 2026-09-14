@@ -10,12 +10,15 @@ import {
 import { Message, MessageContent } from '@/components/ui/message';
 import { AssistantAvatar, ChatMessage } from '@/components/chat/chat-message';
 import { ChatEmptyState } from '@/components/chat/chat-empty-state';
+import { ChatTranscriptSkeleton } from '@/components/chat/chat-transcript-skeleton';
 import type { Answer } from '@/lib/message-parts';
 
 interface ChatTranscriptProps {
 	messages: UIMessage[];
 	/** True between sending a message and the first token of the reply. */
 	thinking: boolean;
+	/** True while an existing thread's history is still in flight over the socket. */
+	loadingHistory: boolean;
 	onApproval: (approvalId: string, approved: boolean) => void;
 	onAnswer: (toolCallId: string, answers: Answer[]) => void;
 	onPickSuggestion: (prompt: string) => void;
@@ -40,7 +43,15 @@ function ThinkingIndicator() {
 	);
 }
 
-export function ChatTranscript({ messages, thinking, onApproval, onAnswer, onPickSuggestion }: ChatTranscriptProps) {
+export function ChatTranscript({ messages, thinking, loadingHistory, onApproval, onAnswer, onPickSuggestion }: ChatTranscriptProps) {
+	if (loadingHistory) {
+		return (
+			<div className='flex-1 overflow-hidden'>
+				<ChatTranscriptSkeleton />
+			</div>
+		);
+	}
+
 	return (
 		<MessageScrollerProvider autoScroll defaultScrollPosition='last-anchor' scrollPreviousItemPeek={64}>
 			<MessageScroller className='flex-1'>

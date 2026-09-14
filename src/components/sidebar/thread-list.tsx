@@ -1,6 +1,7 @@
 import { MessageSquareIcon, MoreHorizontalIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatThreadTime, groupThreadsByDate } from '@/lib/format';
 import type { ChatThread } from '@/lib/api';
@@ -9,11 +10,28 @@ interface ThreadListProps {
 	threads: ChatThread[];
 	activeThreadPid: string | null;
 	disabled: boolean;
+	/** First load of the list for this company — distinct from `disabled`, which just blocks clicks. */
+	loading: boolean;
 	onOpen: (threadPid: string) => void;
 	onDelete: (threadPid: string) => void;
 }
 
-export function ThreadList({ threads, activeThreadPid, disabled, onOpen, onDelete }: ThreadListProps) {
+function ThreadListSkeleton() {
+	return (
+		<div className='flex flex-col gap-0.5 px-2 py-1'>
+			{[85, 65, 90, 50].map((width, i) => (
+				<div key={i} className='flex items-center gap-2 px-0 py-2'>
+					<Skeleton className='size-3.5 shrink-0 rounded-full' />
+					<Skeleton className='h-3.5' style={{ width: `${width}%` }} />
+				</div>
+			))}
+		</div>
+	);
+}
+
+export function ThreadList({ threads, activeThreadPid, disabled, loading, onOpen, onDelete }: ThreadListProps) {
+	if (loading && !threads.length) return <ThreadListSkeleton />;
+
 	if (!threads.length) {
 		return (
 			<p className='px-3 py-6 text-center text-xs text-muted-foreground'>

@@ -1,8 +1,9 @@
 import { Suspense } from 'react';
-import { AlertCircleIcon, LoaderIcon } from 'lucide-react';
+import { AlertCircleIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ChatComposer } from '@/components/chat/chat-composer';
 import { ChatTranscript } from '@/components/chat/chat-transcript';
+import { ChatTranscriptSkeleton } from '@/components/chat/chat-transcript-skeleton';
 import { useChatSession } from '@/hooks/use-chat-session';
 import type { GetToken, WsTicket } from '@/lib/api';
 
@@ -10,14 +11,23 @@ interface ChatPanelProps {
 	initialTicket: WsTicket;
 	companyId: string;
 	getToken: GetToken;
+	/** Skips the "loading history" skeleton — a freshly created thread has nothing to wait for. */
+	isNewThread: boolean;
 	onTurnFinished: () => void;
 }
 
+/**
+ * `useAgent`'s query resolves through `use()`, so the socket handshake suspends this whole
+ * subtree. The skeleton here is what's on screen for that handshake; `ChatTranscript` takes
+ * over with the same skeleton once the socket is open but history hasn't arrived yet, so there's
+ * no visual seam between "connecting" and "loading history".
+ */
 function ConnectingState() {
 	return (
-		<div className='flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground'>
-			<LoaderIcon className='size-4 animate-spin' />
-			Connecting…
+		<div className='flex min-h-0 flex-1 flex-col'>
+			<div className='flex-1 overflow-hidden'>
+				<ChatTranscriptSkeleton />
+			</div>
 		</div>
 	);
 }
@@ -31,12 +41,13 @@ export function ChatPanel(props: ChatPanelProps) {
 	);
 }
 
-function Conversation({ initialTicket, companyId, getToken, onTurnFinished }: ChatPanelProps) {
+function Conversation({ initialTicket, companyId, getToken, isNewThread, onTurnFinished }: ChatPanelProps) {
 	const chat = useChatSession({ initialTicket, companyId, getToken, onTurnFinished });
 	const { messages, busy, awaitingUser, error, connectionError, isRecovering } = chat;
 
 	const lastMessage = messages[messages.length - 1];
 	const thinking = busy && lastMessage?.role !== 'assistant';
+	const loadingHistory = !isNewThread && messages.length === 0;
 
 	const notice = connectionError
 		? 'Connection lost — reconnecting…'
@@ -53,6 +64,7 @@ function Conversation({ initialTicket, companyId, getToken, onTurnFinished }: Ch
 			<ChatTranscript
 				messages={messages}
 				thinking={thinking}
+				loadingHistory={loadingHistory}
 				onApproval={(id, approved) => void chat.addToolApprovalResponse({ id, approved })}
 				onAnswer={(toolCallId, answers) => chat.addToolOutput({ toolCallId, toolName: 'ask_user', output: { answers } })}
 				onPickSuggestion={send}

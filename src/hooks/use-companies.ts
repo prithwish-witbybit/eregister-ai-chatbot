@@ -19,15 +19,18 @@ export function isValidCompanyId(companyId: string): boolean {
 export function useCompanies(getToken: GetToken) {
 	const [companies, setCompanies] = useState<Company[]>([]);
 	const [companyId, setCompanyId] = useState(readStoredCompany);
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
+		setLoading(true);
 		listCompanies(getToken)
 			.then(list => {
 				setCompanies(list);
 				setCompanyId(prev => (list.some(c => c.id === prev) ? prev : (list[0]?.id ?? prev)));
 			})
 			// Local no-auth mode may not resolve a user; the free-text company id field covers that.
-			.catch(() => setCompanies([]));
+			.catch(() => setCompanies([]))
+			.finally(() => setLoading(false));
 	}, [getToken]);
 
 	useEffect(() => {
@@ -38,5 +41,5 @@ export function useCompanies(getToken: GetToken) {
 		}
 	}, [companyId]);
 
-	return { companies, companyId, setCompanyId };
+	return { companies, companyId, setCompanyId, loading };
 }

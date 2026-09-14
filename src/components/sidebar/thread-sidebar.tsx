@@ -10,10 +10,12 @@ import type { ChatThread, Company } from '@/lib/api';
 interface ThreadSidebarProps {
 	companies: Company[];
 	companyId: string;
+	loadingCompanies: boolean;
 	onCompanyChange: (companyId: string) => void;
 	threads: ChatThread[];
 	activeThreadPid: string | null;
 	opening: boolean;
+	loadingThreads: boolean;
 	onNewChat: () => void;
 	onOpenThread: (threadPid: string) => void;
 	onDeleteThread: (threadPid: string) => void;
@@ -24,10 +26,12 @@ interface ThreadSidebarProps {
 export function ThreadSidebar({
 	companies,
 	companyId,
+	loadingCompanies,
 	onCompanyChange,
 	threads,
 	activeThreadPid,
 	opening,
+	loadingThreads,
 	onNewChat,
 	onOpenThread,
 	onDeleteThread,
@@ -44,9 +48,13 @@ export function ThreadSidebar({
 					<span className='font-heading text-sm font-semibold'>eRegister AI</span>
 				</div>
 
-				<CompanySelect companies={companies} companyId={companyId} onChange={onCompanyChange} />
+				<CompanySelect companies={companies} companyId={companyId} loading={loadingCompanies} onChange={onCompanyChange} />
 
-				<Button className='w-full justify-center' disabled={!isValidCompanyId(companyId) || opening} onClick={onNewChat}>
+				<Button
+					className='w-full justify-center'
+					disabled={!isValidCompanyId(companyId) || opening || loadingCompanies}
+					onClick={onNewChat}
+				>
 					<PlusIcon />
 					New chat
 				</Button>
@@ -59,6 +67,7 @@ export function ThreadSidebar({
 					threads={threads}
 					activeThreadPid={activeThreadPid}
 					disabled={opening}
+					loading={loadingThreads}
 					onOpen={onOpenThread}
 					onDelete={onDeleteThread}
 				/>

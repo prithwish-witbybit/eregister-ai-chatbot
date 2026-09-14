@@ -1,5 +1,6 @@
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useAnimatedText } from '@/hooks/use-animated-text';
 import { cn } from '@/lib/utils';
 
 /**
@@ -24,10 +25,22 @@ const prose = cn(
 	'[&_td]:border [&_td]:border-border [&_td]:px-2.5 [&_td]:py-1.5 [&_td]:text-start'
 );
 
-export function MarkdownContent({ children, className }: { children: string; className?: string }) {
+interface MarkdownContentProps {
+	children: string;
+	/** True only while this part is actively receiving tokens — drives the word-by-word reveal. */
+	streaming?: boolean;
+	className?: string;
+}
+
+export function MarkdownContent({ children, streaming = false, className }: MarkdownContentProps) {
+	const revealed = useAnimatedText(children, streaming);
+	// The cursor outlives `streaming`: the last batch usually arrives well before the reveal has
+	// caught up with it, and dropping the cursor at that moment reads as the reply having stalled.
+	const revealing = streaming || revealed.length < children.length;
+
 	return (
-		<div className={cn(prose, className)}>
-			<Markdown remarkPlugins={[remarkGfm]}>{children}</Markdown>
+		<div className={cn(prose, revealing && 'md-streaming', className)}>
+			<Markdown remarkPlugins={[remarkGfm]}>{revealed}</Markdown>
 		</div>
 	);
 }

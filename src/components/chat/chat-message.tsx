@@ -45,7 +45,7 @@ export function ChatMessage({ message, onApproval, onAnswer }: ChatMessageProps)
 						return (
 							<Bubble key={index} variant='ghost'>
 								<BubbleContent>
-									<MarkdownContent>{part.text}</MarkdownContent>
+									<MarkdownContent streaming={part.state === 'streaming'}>{part.text}</MarkdownContent>
 								</BubbleContent>
 							</Bubble>
 						);

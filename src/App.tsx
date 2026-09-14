@@ -16,6 +16,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Spinner } from '@/components/ui/spinner';
 import { LoginScreen } from '@/components/auth/login-screen';
 import { ChatPanel } from '@/components/chat/chat-panel';
+import { ReadOnlyChatPanel } from '@/components/chat/read-only-chat-panel';
 import { ThreadSidebar } from '@/components/sidebar/thread-sidebar';
 import { useCompanies, isValidCompanyId } from '@/hooks/use-companies';
 import { useThreads } from '@/hooks/use-threads';
@@ -41,6 +42,7 @@ function Workspace() {
 	const {
 		threads,
 		activeTicket,
+		activeReadTicket,
 		isNewThread,
 		opening,
 		loadingThreads,
@@ -48,11 +50,13 @@ function Workspace() {
 		clearError,
 		open,
 		remove,
+		rename,
 		refresh
 	} = useThreads(getToken, companyId);
 	const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
-	const activeThread = threads.find(thread => thread.publicId === activeTicket?.threadPid);
+	const activeThreadPid = activeTicket?.threadPid ?? activeReadTicket?.threadPid ?? null;
+	const activeThread = threads.find(thread => thread.publicId === activeThreadPid);
 
 	return (
 		<div className='flex h-full'>
@@ -62,18 +66,19 @@ function Workspace() {
 				loadingCompanies={loadingCompanies}
 				onCompanyChange={setCompanyId}
 				threads={threads}
-				activeThreadPid={activeTicket?.threadPid ?? null}
+				activeThreadPid={activeThreadPid}
 				opening={opening}
 				loadingThreads={loadingThreads}
 				onNewChat={() => void open()}
 				onOpenThread={threadPid => void open(threadPid)}
 				onDeleteThread={setPendingDelete}
+				onRenameThread={(threadPid, title) => void rename(threadPid, title)}
 				email={email}
 				onSignOut={() => void signOut()}
 			/>
 
 			<main className='flex min-h-0 min-w-0 flex-1 flex-col'>
-				{activeTicket && (
+				{(activeTicket || activeReadTicket) && (
 					<header className='flex h-14 shrink-0 items-center border-b border-border px-6'>
 						<h1 className='truncate font-heading text-sm font-medium'>{activeThread?.title ?? 'New chat'}</h1>
 					</header>
@@ -95,6 +100,8 @@ function Workspace() {
 						isNewThread={isNewThread}
 						onTurnFinished={refresh}
 					/>
+				) : activeReadTicket ? (
+					<ReadOnlyChatPanel key={activeReadTicket.name} ticket={activeReadTicket} ownerName={activeThread?.ownerName ?? null} />
 				) : (
 					<NoThreadSelected
 						canStart={isValidCompanyId(companyId)}

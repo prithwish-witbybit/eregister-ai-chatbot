@@ -19,6 +19,7 @@ interface ThreadSidebarProps {
 	onNewChat: () => void;
 	onOpenThread: (threadPid: string) => void;
 	onDeleteThread: (threadPid: string) => void;
+	onRenameThread: (threadPid: string, title: string) => void;
 	email: string | null;
 	onSignOut: () => void;
 }
@@ -35,6 +36,7 @@ export function ThreadSidebar({
 	onNewChat,
 	onOpenThread,
 	onDeleteThread,
+	onRenameThread,
 	email,
 	onSignOut
 }: ThreadSidebarProps) {
@@ -70,6 +72,7 @@ export function ThreadSidebar({
 					loading={loadingThreads}
 					onOpen={onOpenThread}
 					onDelete={onDeleteThread}
+					onRename={onRenameThread}
 				/>
 			</div>
 

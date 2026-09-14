@@ -1,3 +1,4 @@
+import type { UIMessage } from 'ai';
 import { config } from '@/lib/config';
 
 export type GetToken = () => Promise<string | undefined>;
@@ -11,6 +12,11 @@ export interface ChatThread {
 	publicId: string;
 	title: string | null;
 	createdOn: string;
+	modifiedOn: string;
+	/** Owner's company_users.name; null if that company_users row was removed. */
+	ownerName: string | null;
+	/** True when the signed-in user owns this thread. False means it's someone else's, visible read-only. */
+	isOwner: boolean;
 }
 
 export interface WsTicket {
@@ -19,6 +25,11 @@ export interface WsTicket {
 	threadPid: string;
 	agent: string;
 	name: string;
+}
+
+/** A 60s ticket good only for GET .../get-messages on the ai-chat worker — no WebSocket, no write tools. */
+export interface ReadTicket extends WsTicket {
+	isOwner: boolean;
 }
 
 interface Envelope<T> {
@@ -54,6 +65,13 @@ export async function deleteThread(getToken: GetToken, companyId: string, thread
 	await request(getToken, `${chatPath(companyId)}/threads/${encodeURIComponent(threadPid)}`, { method: 'DELETE' });
 }
 
+export async function renameThread(getToken: GetToken, companyId: string, threadPid: string, title: string): Promise<void> {
+	await request(getToken, `${chatPath(companyId)}/threads/${encodeURIComponent(threadPid)}`, {
+		method: 'PATCH',
+		body: JSON.stringify({ title })
+	});
+}
+
 /** Omit threadPid to create a new thread; the returned ticket names it. */
 export async function fetchTicket(getToken: GetToken, companyId: string, threadPid?: string): Promise<WsTicket> {
 	const body = await request<Envelope<WsTicket>>(getToken, `${chatPath(companyId)}/ws-ticket`, {
@@ -61,4 +79,25 @@ export async function fetchTicket(getToken: GetToken, companyId: string, threadP
 		body: JSON.stringify(threadPid ? { threadPid } : {})
 	});
 	return body.data;
+}
+
+/** Mints a read-only ticket for any thread in the company, including one the caller doesn't own. */
+export async function fetchReadTicket(getToken: GetToken, companyId: string, threadPid: string): Promise<ReadTicket> {
+	const body = await request<Envelope<ReadTicket>>(getToken, `${chatPath(companyId)}/threads/${encodeURIComponent(threadPid)}/read-ticket`, {
+		method: 'POST'
+	});
+	return body.data;
+}
+
+/** http(s) origin the ai-chat worker itself answers on, derived from the ws(s) one used for the live socket. */
+const chatWorkerHttpOrigin = config.wsBase.replace(/^ws/, 'http');
+
+/** Fetches the transcript for a read ticket over plain HTTP (the same shape `useAgentChat` hydrates from on connect). */
+export async function fetchReadOnlyMessages(ticket: ReadTicket): Promise<UIMessage[]> {
+	const url = `${chatWorkerHttpOrigin}/agents/${ticket.agent}/${ticket.name}/get-messages?ticket=${encodeURIComponent(ticket.ticket)}`;
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`Failed to load thread: ${res.status} ${res.statusText}`);
+	const text = await res.text();
+	// The ai-chat worker's get-messages route is agents-framework code; it returns the same UIMessage[] JSON useAgentChat hydrates from.
+	return text.trim() ? (JSON.parse(text) as UIMessage[]) : [];
 }

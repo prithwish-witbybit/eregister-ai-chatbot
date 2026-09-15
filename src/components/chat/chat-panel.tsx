@@ -43,11 +43,12 @@ export function ChatPanel(props: ChatPanelProps) {
 
 function Conversation({ initialTicket, companyId, getToken, isNewThread, onTurnFinished }: ChatPanelProps) {
 	const chat = useChatSession({ initialTicket, companyId, getToken, onTurnFinished });
-	const { messages, busy, awaitingUser, error, connectionError, isRecovering } = chat;
+	const { messages, busy, awaitingUser, error, connectionError, isRecovering, historyLoaded } = chat;
 
 	const lastMessage = messages[messages.length - 1];
 	const thinking = busy && lastMessage?.role !== 'assistant';
-	const loadingHistory = !isNewThread && messages.length === 0;
+	// A reopened thread with no messages is empty, not loading — `historyLoaded` is what tells them apart.
+	const loadingHistory = !isNewThread && !historyLoaded && messages.length === 0;
 
 	const notice = connectionError
 		? 'Connection lost — reconnecting…'

@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router';
 import { App } from '@/App';
 import { AuthProvider } from '@/providers/auth-provider';
 import { watchSystemTheme } from '@/lib/theme';
@@ -9,8 +10,10 @@ watchSystemTheme();
 
 createRoot(document.getElementById('root')!).render(
 	<StrictMode>
-		<AuthProvider>
-			<App />
-		</AuthProvider>
+		<BrowserRouter>
+			<AuthProvider>
+				<App />
+			</AuthProvider>
+		</BrowserRouter>
 	</StrictMode>
 );

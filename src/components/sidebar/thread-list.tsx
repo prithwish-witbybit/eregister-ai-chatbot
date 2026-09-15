@@ -11,8 +11,13 @@ import type { ChatThread } from '@/lib/api';
 // Matches ai_chat_threads.title VARCHAR(200).
 const TITLE_MAX_LENGTH = 200;
 
+export type ThreadFilter = 'mine' | 'all';
+
 interface ThreadListProps {
+	/** Already filtered; `filter` only picks the empty-state wording. */
 	threads: ChatThread[];
+	filter: ThreadFilter;
+	onShowAll: () => void;
 	activeThreadPid: string | null;
 	disabled: boolean;
 	/** First load of the list for this company — distinct from `disabled`, which just blocks clicks. */
@@ -35,8 +40,19 @@ function ThreadListSkeleton() {
 	);
 }
 
-export function ThreadList({ threads, activeThreadPid, disabled, loading, onOpen, onDelete, onRename }: ThreadListProps) {
+export function ThreadList({ threads, filter, onShowAll, activeThreadPid, disabled, loading, onOpen, onDelete, onRename }: ThreadListProps) {
 	if (loading && !threads.length) return <ThreadListSkeleton />;
+
+	if (!threads.length && filter === 'mine') {
+		return (
+			<div className='flex flex-col items-center gap-1 px-3 py-6 text-center text-xs text-muted-foreground'>
+				<p>You haven&apos;t started any chats yet.</p>
+				<button type='button' onClick={onShowAll} className='font-medium text-foreground underline-offset-2 hover:underline'>
+					Show all chats
+				</button>
+			</div>
+		);
+	}
 
 	if (!threads.length) {
 		return (

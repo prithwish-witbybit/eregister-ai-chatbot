@@ -4,6 +4,9 @@ import { listCompanies, type Company, type GetToken } from '@/lib/api';
 const STORAGE_KEY = 'chat-web:companyId';
 
 function readStoredCompany(): string {
+	// A shared link names its company; it wins over the last one picked on this device.
+	const fromUrl = window.location.pathname.match(/^\/companies\/(\d+)(?:\/|$)/)?.[1];
+	if (fromUrl) return fromUrl;
 	try {
 		return localStorage.getItem(STORAGE_KEY) ?? '';
 	} catch {

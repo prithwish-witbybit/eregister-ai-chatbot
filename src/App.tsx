@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { AlertCircleIcon, MessageSquarePlusIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { useMatch, useNavigate } from 'react-router';
+import { AlertCircleIcon, CheckIcon, LinkIcon, MessageSquarePlusIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
 	AlertDialog,
@@ -41,6 +42,7 @@ function Workspace() {
 	const { companies, companyId, setCompanyId, loading: loadingCompanies } = useCompanies(getToken);
 	const {
 		threads,
+		threadsCompanyId,
 		activeTicket,
 		activeReadTicket,
 		isNewThread,
@@ -49,6 +51,7 @@ function Workspace() {
 		error,
 		clearError,
 		open,
+		close,
 		remove,
 		rename,
 		refresh
@@ -57,6 +60,49 @@ function Workspace() {
 
 	const activeThreadPid = activeTicket?.threadPid ?? activeReadTicket?.threadPid ?? null;
 	const activeThread = threads.find(thread => thread.publicId === activeThreadPid);
+
+	// The URL is the shareable record of what's open: /companies/:companyId[/chats/:threadPid].
+	const navigate = useNavigate();
+	const chatMatch = useMatch('/companies/:companyId/chats/:threadPid');
+	const companyMatch = useMatch('/companies/:companyId');
+	const routeCompanyId = chatMatch?.params.companyId ?? companyMatch?.params.companyId ?? null;
+	const routeThreadPid = chatMatch?.params.threadPid ?? null;
+	// Thread the URL asks for, held until that company's thread list has loaded — `open` needs it
+	// to tell the caller's own threads (full ticket) from other users' (read-only ticket).
+	const pendingThreadPid = useRef<string | null>(null);
+
+	// URL → state. Runs only when the URL changes: sidebar clicks, back/forward, or a pasted link.
+	useEffect(() => {
+		if (routeCompanyId && routeCompanyId !== companyId) setCompanyId(routeCompanyId);
+		pendingThreadPid.current = routeThreadPid;
+		if (!routeThreadPid) close();
+		// Deliberately keyed on the URL alone — reacting to `companyId` would undo the picker.
+	}, [routeCompanyId, routeThreadPid]);
+
+	useEffect(() => {
+		const target = pendingThreadPid.current;
+		if (!target || opening || threadsCompanyId !== companyId || routeCompanyId !== companyId) return;
+		pendingThreadPid.current = null;
+		if (target === activeThreadPid) return;
+		void open(target).then(opened => {
+			// Deleted, or no access — don't leave a URL pointing at a chat that isn't shown.
+			if (!opened) navigate(`/companies/${companyId}`, { replace: true });
+		});
+	}, [routeThreadPid, routeCompanyId, companyId, threadsCompanyId, opening, activeThreadPid, open, navigate]);
+
+	// State → URL for company changes made outside the URL: the picker, or falling back to the
+	// first company when the stored/linked one isn't accessible. Also normalises `/` and unknown paths.
+	useEffect(() => {
+		if (isValidCompanyId(companyId) && routeCompanyId !== companyId) navigate(`/companies/${companyId}`, { replace: true });
+		// Deliberately keyed on the company alone — reacting to the URL would fight back/forward.
+	}, [companyId]);
+
+	const threadPath = (threadPid: string) => `/companies/${companyId}/chats/${encodeURIComponent(threadPid)}`;
+
+	const startNewChat = () =>
+		void open().then(threadPid => {
+			if (threadPid) navigate(threadPath(threadPid));
+		});
 
 	return (
 		<div className='flex h-full'>
@@ -69,8 +115,8 @@ function Workspace() {
 				activeThreadPid={activeThreadPid}
 				opening={opening}
 				loadingThreads={loadingThreads}
-				onNewChat={() => void open()}
-				onOpenThread={threadPid => void open(threadPid)}
+				onNewChat={startNewChat}
+				onOpenThread={threadPid => navigate(threadPath(threadPid))}
 				onDeleteThread={setPendingDelete}
 				onRenameThread={(threadPid, title) => void rename(threadPid, title)}
 				email={email}
@@ -79,8 +125,9 @@ function Workspace() {
 
 			<main className='flex min-h-0 min-w-0 flex-1 flex-col'>
 				{(activeTicket || activeReadTicket) && (
-					<header className='flex h-14 shrink-0 items-center border-b border-border px-6'>
-						<h1 className='truncate font-heading text-sm font-medium'>{activeThread?.title ?? 'New chat'}</h1>
+					<header className='flex h-14 shrink-0 items-center gap-2 border-b border-border px-6'>
+						<h1 className='min-w-0 flex-1 truncate font-heading text-sm font-medium'>{activeThread?.title ?? 'New chat'}</h1>
+						<CopyLinkButton />
 					</header>
 				)}
 
@@ -107,7 +154,7 @@ function Workspace() {
 						canStart={isValidCompanyId(companyId)}
 						loading={loadingCompanies}
 						busy={opening}
-						onNewChat={() => void open()}
+						onNewChat={startNewChat}
 					/>
 				)}
 			</main>
@@ -123,6 +170,7 @@ function Workspace() {
 						<AlertDialogAction
 							variant='destructive'
 							onClick={() => {
+								if (pendingDelete === routeThreadPid) navigate(`/companies/${companyId}`, { replace: true });
 								if (pendingDelete) void remove(pendingDelete);
 								setPendingDelete(null);
 							}}
@@ -133,6 +181,27 @@ function Workspace() {
 				</AlertDialogContent>
 			</AlertDialog>
 		</div>
+	);
+}
+
+function CopyLinkButton() {
+	const [copied, setCopied] = useState(false);
+
+	useEffect(() => {
+		if (!copied) return;
+		const timer = setTimeout(() => setCopied(false), 2000);
+		return () => clearTimeout(timer);
+	}, [copied]);
+
+	return (
+		<Button
+			variant='ghost'
+			size='sm'
+			onClick={() => void navigator.clipboard.writeText(window.location.href).then(() => setCopied(true))}
+		>
+			{copied ? <CheckIcon /> : <LinkIcon />}
+			{copied ? 'Copied' : 'Copy link'}
+		</Button>
 	);
 }
 

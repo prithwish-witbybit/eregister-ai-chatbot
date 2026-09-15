@@ -20,6 +20,8 @@ import { isValidCompanyId } from '@/hooks/use-companies';
  */
 export function useThreads(getToken: GetToken, companyId: string) {
 	const [threads, setThreads] = useState<ChatThread[]>([]);
+	// Which company `threads` belongs to — stale for a moment after switching companies.
+	const [threadsCompanyId, setThreadsCompanyId] = useState<string | null>(null);
 	const [activeTicket, setActiveTicket] = useState<WsTicket | null>(null);
 	const [activeReadTicket, setActiveReadTicket] = useState<ReadTicket | null>(null);
 	// A freshly created thread has no history to wait for; a reopened one does — the chat
@@ -35,6 +37,7 @@ export function useThreads(getToken: GetToken, companyId: string) {
 		setLoadingThreads(true);
 		try {
 			setThreads(await listThreads(getToken, companyId));
+			setThreadsCompanyId(companyId);
 		} catch (err) {
 			setError((err as Error).message);
 		} finally {
@@ -49,24 +52,31 @@ export function useThreads(getToken: GetToken, companyId: string) {
 		void refresh();
 	}, [refresh]);
 
-	/** Omit `threadPid` to start a new thread (always the caller's own — always full access). */
+	/**
+	 * Omit `threadPid` to start a new thread (always the caller's own — always full access).
+	 * Resolves to the opened thread's id, or null if it couldn't be opened.
+	 */
 	const open = useCallback(
-		async (threadPid?: string) => {
+		async (threadPid?: string): Promise<string | null> => {
 			setOpening(true);
 			setError(null);
 			try {
 				const thread = threadPid ? threads.find(t => t.publicId === threadPid) : undefined;
 				if (threadPid && thread && !thread.isOwner) {
-					setActiveReadTicket(await fetchReadTicket(getToken, companyId, threadPid));
+					const ticket = await fetchReadTicket(getToken, companyId, threadPid);
+					setActiveReadTicket(ticket);
 					setActiveTicket(null);
-				} else {
-					setActiveTicket(await fetchTicket(getToken, companyId, threadPid));
-					setActiveReadTicket(null);
-					setIsNewThread(!threadPid);
-					if (!threadPid) void refresh();
+					return ticket.threadPid;
 				}
+				const ticket = await fetchTicket(getToken, companyId, threadPid);
+				setActiveTicket(ticket);
+				setActiveReadTicket(null);
+				setIsNewThread(!threadPid);
+				if (!threadPid) void refresh();
+				return ticket.threadPid;
 			} catch (err) {
 				setError((err as Error).message);
+				return null;
 			} finally {
 				setOpening(false);
 			}
@@ -104,6 +114,7 @@ export function useThreads(getToken: GetToken, companyId: string) {
 
 	return {
 		threads,
+		threadsCompanyId,
 		activeTicket,
 		activeReadTicket,
 		isNewThread,
@@ -112,6 +123,10 @@ export function useThreads(getToken: GetToken, companyId: string) {
 		error,
 		clearError: () => setError(null),
 		open,
+		close: useCallback(() => {
+			setActiveTicket(null);
+			setActiveReadTicket(null);
+		}, []),
 		remove,
 		rename,
 		refresh

@@ -1,7 +1,37 @@
-import Markdown from 'react-markdown';
+import type { ComponentProps } from 'react';
+import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { CodeBlock } from '@/components/chat/code-block';
 import { useAnimatedText } from '@/hooks/use-animated-text';
 import { cn } from '@/lib/utils';
+
+/** The slice of a hast node that fenced code blocks need — avoids depending on @types/hast directly. */
+interface HastNode {
+	type: string;
+	tagName?: string;
+	value?: string;
+	properties?: Record<string, unknown>;
+	children?: HastNode[];
+}
+
+function hastText(node: HastNode): string {
+	return node.type === 'text' ? (node.value ?? '') : (node.children ?? []).map(hastText).join('');
+}
+
+/** Fenced code blocks become highlighted `CodeBlock`s; the fence tag (```ts) arrives as `language-ts`. */
+function MarkdownPre({ node, ...props }: ComponentProps<'pre'> & { node?: unknown }) {
+	const code = (node as HastNode | undefined)?.children?.find(child => child.type === 'element' && child.tagName === 'code');
+	if (!code) return <pre {...props} />;
+
+	const classNames = code.properties?.className;
+	const language = Array.isArray(classNames)
+		? classNames.find((name): name is string => typeof name === 'string' && name.startsWith('language-'))?.slice('language-'.length)
+		: undefined;
+
+	return <CodeBlock code={hastText(code).replace(/\n$/, '')} language={language} className='my-2' />;
+}
+
+const markdownComponents: Components = { pre: MarkdownPre };
 
 /**
  * react-markdown renders plain HTML tags, so the prose rhythm is applied with descendant
@@ -19,7 +49,6 @@ const prose = cn(
 	'[&_blockquote]:my-2 [&_blockquote]:border-s-2 [&_blockquote]:border-border [&_blockquote]:ps-3 [&_blockquote]:text-muted-foreground',
 	'[&_hr]:my-4 [&_hr]:border-border',
 	'[&_:not(pre)>code]:rounded-sm [&_:not(pre)>code]:bg-muted [&_:not(pre)>code]:px-1.5 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[0.85em]',
-	'[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-xs',
 	'[&_table]:my-2 [&_table]:block [&_table]:w-fit [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_table]:text-xs',
 	'[&_th]:border [&_th]:border-border [&_th]:bg-muted/60 [&_th]:px-2.5 [&_th]:py-1.5 [&_th]:text-start [&_th]:font-medium',
 	'[&_td]:border [&_td]:border-border [&_td]:px-2.5 [&_td]:py-1.5 [&_td]:text-start'
@@ -40,7 +69,9 @@ export function MarkdownContent({ children, streaming = false, className }: Mark
 
 	return (
 		<div className={cn(prose, revealing && 'md-streaming', className)}>
-			<Markdown remarkPlugins={[remarkGfm]}>{revealed}</Markdown>
+			<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+				{revealed}
+			</Markdown>
 		</div>
 	);
 }

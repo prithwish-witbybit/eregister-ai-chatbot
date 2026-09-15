@@ -141,10 +141,10 @@
 /*
  * The streaming cursor rides the last block of a message rather than sitting after the markdown
  * root, so it trails the final word instead of dropping onto a line of its own. Lists need the
- * deeper selector to reach their last item; `pre` and `table` are skipped because a pseudo-element
- * inside them lands in the wrong place.
+ * deeper selector to reach their last item; `pre`, `table` and code blocks are skipped because a
+ * pseudo-element inside them lands in the wrong place.
  */
-.md-streaming > :last-child:not(pre, table, ul, ol)::after,
+.md-streaming > :last-child:not(pre, table, ul, ol, [data-slot='code-block'])::after,
 .md-streaming > :is(ul, ol):last-child > li:last-child::after {
 	content: '';
 	display: inline-block;
@@ -164,6 +164,14 @@
 	50% {
 		opacity: 0;
 	}
+}
+
+/*
+ * Shiki tokens carry the light theme's colour inline and the dark theme's as `--shiki-dark`
+ * (see lib/highlighter.ts), so switching theme is a CSS swap rather than a re-highlight.
+ */
+.dark .shiki-token {
+	color: var(--shiki-dark) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
